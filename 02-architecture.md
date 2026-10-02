@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Document** | Solution Architecture |
-| **Version** | 0.2 (draft) |
+| **Version** | 0.3 (draft) |
 | **Status** | For review |
 | **Related** | `01-requirements.md` (v0.2) |
 
@@ -13,6 +13,7 @@
 |---|---|
 | 0.1 | Initial draft. |
 | 0.2 | Aligned with requirements v0.2: photos optional on items, photo side optional, name-only duplicate check (§2.4), PWA as the Android client for MVP with native MAUI app in Phase 2, bulk import and export removed from MVP/roadmap, "copies owned" marked post-MVP. Updated sequences, data model, API, ADRs (new ADR-08), risks and build order. |
+| 0.3 | Added the "photograph the front side first" hint in the add-item screen (§2.2 Stage 0, build order). |
 
 ---
 
@@ -83,6 +84,7 @@ flowchart LR
 - Show the detected corners in the UI and let the user drag them if wrong (FR-21). Store both the original and the normalized image.
 - Normalize: max side 1024 px, fix EXIF rotation, mild contrast normalization (CLAHE).
 - Rotation: a bag may be photographed upside down. At indexing time, store embeddings for the image rotated **0° and 180°** (and 90°/270° for square bags); take the best score. Cheap and effective.
+- **Front side first (UI hint):** the add-item and check screens show the hint *"Photograph the front side of the bag"* above the camera button. Visual matching works best when every item's first photo shows the same side. The hint is guidance only; the side tag stays optional and nothing is enforced.
 
 #### Stage 1 — Candidate retrieval
 - **Model: DINOv2 ViT-S/14** (Meta, Apache-2.0 license, 384-dim output). DINOv2 is trained self-supervised and is notably better than CLIP at *instance-level* similarity ("this exact object") rather than *semantic* similarity ("a sugar packet"). Upgrade to ViT-B/14 (768-dim) if the spike shows it's needed.
@@ -527,7 +529,7 @@ flowchart LR
 1. **Algorithm spike first** (`tools/SugarBags.Eval`): photograph ~100 bags twice, implement crop → DINOv2 → top-K, measure Recall@1/@5. Then add SIFT re-ranking and measure again. *Do not build UI until this works.*
 2. Domain + EF Core + PostgreSQL (pgvector, pg_trgm) + Blob storage; item CRUD and name filter.
 3. Duplicate check endpoint using the spike code, including the name-only mode (§2.4); background indexing worker.
-4. Blazor PWA: grid with placeholders, name filter and "without photo" filter, add-item flow (photo optional) with crop tool, candidate list, side-by-side compare. Verify it installs and the camera works on Android.
+4. Blazor PWA: grid with placeholders, name filter and "without photo" filter, add-item flow (photo optional, with the "front side first" hint) and crop tool, candidate list, side-by-side compare. Verify it installs and the camera works on Android.
 5. Auth (Entra External ID), deployment pipeline to Azure.
 6. Phase 1.1: decision logging, threshold tuning, OCR.
 7. Phase 2: native Android app (MAUI Blazor Hybrid), "copies owned" counter.
