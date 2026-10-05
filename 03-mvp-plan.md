@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Document** | MVP implementation plan (step by step) |
-| **Version** | 1.0 |
+| **Version** | 1.1 (repository confirmed public) |
 | **Related** | `01-requirements.md` (v0.3), `02-architecture.md` (v0.5) |
 | **Location in repo** | `docs/03-mvp-plan.md` |
 
@@ -116,7 +116,7 @@ These implementation choices are not yet in the architecture document. Step 22 r
    - **Azure CLI** — needed from step 18. Check: `az --version`.
    - *Optional:* **Python 3.11+** — only if step 4 needs to export the model itself.
    - *Optional editor:* Visual Studio 2022/2026 or VS Code with the C# Dev Kit.
-2. **Check the repository visibility:** open `https://github.com/jborowiak/Collection-Organizer` → **Settings → General** → scroll to *Danger Zone*. It says whether the repository is public or private. Write it down — it decides the container image setup in step 26 (architecture §8.2).
+2. **Repository visibility: confirmed PUBLIC.** This decides the container image setup (public ghcr.io image, architecture §8.2). Because the repository is public, remember: **never commit secrets, personal photos or the `testdata/` folder** (it is git-ignored in step 2), and anything in the repository is readable by everyone.
 3. **Clone the repository:**
    ```bash
    git clone https://github.com/jborowiak/Collection-Organizer.git
@@ -131,7 +131,7 @@ These implementation choices are not yet in the architecture document. Step 22 r
    ```
 6. Start Claude Code in the repository root: `claude`.
 
-**Done when:** all tool checks print a version; `docs/` with the three files is on GitHub; you know whether the repository is public or private.
+**Done when:** all tool checks print a version and `docs/` with the three files is on GitHub.
 
 ---
 
@@ -607,10 +607,10 @@ These implementation choices are not yet in the architecture document. Step 22 r
 
 **Type:** CLAUDE CODE · **Depends on:** 22, 23 (outputs) · **Docs:** architecture §8.2
 
-**Goal:** every push to `main` is built, tested and deployed automatically; the image is stored on ghcr.io.
+**Goal:** every push to `main` is built, tested and deployed automatically; the image is stored on ghcr.io as a **public** package (the repository is public).
 
 **Tasks**
-1. **Dockerfile** for `SugarBags.Api` (multi-stage, .NET 10, Linux x64): includes the OpenCV native runtime and its system dependencies, and the ONNX model (downloaded with `tools/get-model.sh` and checksum-verified during the build). Non-root user. `/health` endpoint used as the health probe.
+1. **Dockerfile** for `SugarBags.Api` (multi-stage, .NET 10, Linux x64): includes the OpenCV native runtime and its system dependencies, and the ONNX model (downloaded with `tools/get-model.sh` and checksum-verified during the build). Non-root user. `/health` endpoint used as the health probe. Because the image will be **public**: add a `.dockerignore` (no `.env`, `testdata/`, `eval-results/`, `*.dump`, user-secrets) and make sure no secret is baked in; secrets reach the app only as Container Apps secrets at runtime.
 2. **`ci.yml`** (pull requests and pushes): restore, build, run all tests (Testcontainers works on GitHub's Ubuntu runners).
 3. **`deploy-api.yml`** (push to `main`): build the image, push to `ghcr.io/<owner>/sugarbags-api` tagged with the commit SHA (login with the built-in `GITHUB_TOKEN`, `packages: write` permission), then log in to Azure with **OpenID Connect** (`azure/login`, no stored password) and update the Container App to the new image.
 4. **`deploy-web.yml`** (push to `main`): publish the Blazor app and deploy it to the Static Web App with the deployment token secret; production configuration (API URL, External ID values) from `appsettings.Production.json`.
@@ -644,9 +644,8 @@ These implementation choices are not yet in the architecture document. Step 22 r
 **Type:** EXTERNAL · **Depends on:** 25 · **Docs:** requirements §3.1, §7 · **Time:** ~1–2 hours
 
 1. **Push to `main`** (`git push`) and watch **GitHub → Actions**. Both deploy workflows should run.
-2. **Make the image pullable** — after the first run, the package is created **private** by default:
-   - **If the repository is public:** GitHub → your profile → **Packages** → `sugarbags-api` → **Package settings** → *Change visibility* → **Public** → confirm. Then re-run the failed `deploy-api` workflow (Actions → the run → *Re-run jobs*).
-   - **If the repository is private:** tell Claude Code *"The repository is private — apply the private-image option from architecture §8.2"* (a personal access token with `read:packages` stored as a Container Apps secret, or switching to Azure Container Registry).
+2. **Make the image public** (the repository is public, so a public image is free and needs no credentials). After the first run, the package is created **private** by default: GitHub → your profile → **Packages** → `sugarbags-api` → **Package settings** → *Danger Zone* → **Change visibility** → **Public** → confirm. Then re-run the failed `deploy-api` workflow (Actions → the run → *Re-run jobs*). You only do this once.
+   - *If you ever make the repository private:* tell Claude Code *"The repository is now private — apply the private-image option from architecture §8.2"*.
 3. **Open the Static Web App URL** in a desktop browser → **Sign in with Google** → your collection is empty.
 4. **Smoke test** (each must work):
    - add an item **without** a photo; add an item **with** a photo; filter by name with and without accents; open details and zoom; delete an item;
