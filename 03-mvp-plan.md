@@ -32,7 +32,7 @@ Each step is one unit of work. There are two types:
 | # | Step | Type | Done |
 |---|---|---|---|
 | **A** | **Setup** | | |
-| 1 | Prepare your machine and the repository | EXTERNAL | ☐ |
+| 1 | Prepare your machine and the repository | EXTERNAL | ☑ |
 | 2 | Scaffold the solution and `CLAUDE.md` | CLAUDE CODE | ☐ |
 | **B** | **Algorithm spike (go/no-go)** | | |
 | 3 | Photograph the test set | EXTERNAL | ☐ |
