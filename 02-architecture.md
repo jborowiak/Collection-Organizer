@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | **Document** | Solution Architecture |
-| **Version** | 0.4 (draft) |
+| **Version** | 0.5 (draft) |
 | **Status** | For review |
-| **Related** | `01-requirements.md` (v0.2) |
+| **Related** | `01-requirements.md` (v0.3) |
 
 ### Change log
 
@@ -15,6 +15,7 @@
 | 0.2 | Aligned with requirements v0.2: photos optional on items, photo side optional, name-only duplicate check (§2.4), PWA as the Android client for MVP with native MAUI app in Phase 2, bulk import and export removed from MVP/roadmap, "copies owned" marked post-MVP. Updated sequences, data model, API, ADRs (new ADR-08), risks and build order. |
 | 0.3 | Added the "photograph the front side first" hint in the add-item screen (§2.2 Stage 0, build order). |
 | 0.4 | Database hosting: **Neon Free for the MVP, Azure Database for PostgreSQL as paid fallback** (new §8.1, ADR-09). Nightly `pg_dump` backup job to Blob Storage, no HNSW index in the MVP, database-size monitoring. Cost estimate rewritten from checked pricing (now includes Container Registry). New risks, updated build order. |
+| 0.5 | Container images stored in **GitHub Container Registry (ghcr.io)** instead of Azure Container Registry (new §8.2, ADR-10). Cost estimate updated: MVP ~1–3 USD/month. |
 
 ---
 
@@ -469,10 +470,10 @@ Photos are served through short-lived **SAS URLs** (NFR-10), with thumbnails cac
 
 ```mermaid
 flowchart LR
-    DEV[GitHub repo] -->|GitHub Actions| ACR[Azure Container Registry]
+    DEV[GitHub repo] -->|GitHub Actions| GHCR[GitHub Container Registry<br/>ghcr.io, public image]
     DEV -->|GitHub Actions| SWA[Azure Static Web Apps<br/>Blazor WASM PWA]
-    ACR --> ACA[Azure Container Apps<br/>API + worker<br/>scale 0..N]
-    ACR --> JOB[Container Apps Job<br/>nightly pg_dump]
+    GHCR --> ACA[Azure Container Apps<br/>API + worker<br/>scale 0..N]
+    JOB[Container Apps Job<br/>nightly pg_dump<br/>standard PostgreSQL image]
     SWA -->|HTTPS /api| ACA
     ACA -->|TLS| PG[(PostgreSQL<br/>Neon Free - MVP<br/>Azure PostgreSQL B1ms - fallback)]
     ACA --> ST[(Storage Account<br/>Blob + Queue)]
@@ -488,6 +489,7 @@ flowchart LR
 |---|---|---|
 | Frontend | **Azure Static Web Apps** (Free tier) | Free hosting for the static Blazor WASM app, custom domain, HTTPS |
 | API + worker | **Azure Container Apps** (consumption) | Scale-to-zero keeps idle cost near zero; enough CPU/RAM for ONNX + OpenCV; container image bundles native OpenCV libs cleanly |
+| Container registry | **GitHub Container Registry** (ghcr.io) (MVP); **Azure Container Registry Basic** (paid fallback) | Free for public images; built into the GitHub Actions workflow already in use. Azure Container Registry costs ~5 USD/month. See §8.2 |
 | Database | **Neon Free** (MVP); **Azure Database for PostgreSQL – Flexible Server** (paid fallback) | Same PostgreSQL engine, so no code differs between them. Provides `pgvector` and `pg_trgm`; one database for relational data, vectors and fuzzy text. Neon Free costs nothing; see §8.1 |
 | Database backup | **Azure Container Apps Job** (scheduled) | Nightly `pg_dump` to Blob Storage, because Neon Free keeps only 6 hours of restore history. Covers NFR-09 for the database |
 | Files | **Blob Storage** (Hot for thumbnails, Cool for originals) | Cheap; lifecycle rule deletes temporary query images |
@@ -498,10 +500,10 @@ flowchart LR
 
 | Scenario | Estimate | Breakdown |
 |---|---|---|
-| **MVP with Neon Free** | **~6–8 USD/month** | Container Registry Basic ~5 USD (about 0.167 USD/day); Blob Storage well under 1 USD; Container Apps within its monthly free grant at single-user traffic; Static Web Apps Free; Entra External ID free (first 50,000 monthly active users); database 0 USD. About 1–3 USD if the image is stored in GitHub Container Registry instead. |
-| **Fallback with Azure PostgreSQL B1ms** | **~22–28 USD/month** | The above plus ~17–19 USD for the database (compute ~13–15 USD depending on region, plus ~4 USD for provisioned storage, est.). Burstable servers have no reserved-pricing discount. |
+| **MVP with Neon Free** | **~1–3 USD/month** | Blob Storage well under 1 USD; Key Vault / Application Insights ~0–2 USD (est.); container registry 0 USD (ghcr.io, public image); Container Apps within its monthly free grant at single-user traffic; Static Web Apps Free; Entra External ID free (first 50,000 monthly active users); database 0 USD. |
+| **Fallback with Azure PostgreSQL B1ms** | **~18–22 USD/month** | The above plus ~17–19 USD for the database (compute ~13–15 USD depending on region, plus ~4 USD for provisioned storage, est.). Burstable servers have no reserved-pricing discount. |
 
-Cold start after scale-to-zero adds a few seconds to the first request — set min replicas = 1 (adds an idle charge, roughly 5–15 USD, est.) if that becomes annoying. Version 0.1 of this document left the Container Registry out of the estimate.
+Cold start after scale-to-zero adds a few seconds to the first request — set min replicas = 1 (adds an idle charge, roughly 5–15 USD, est.) if that becomes annoying. Using Azure Container Registry Basic instead of ghcr.io would add ~5 USD/month (about 0.167 USD/day). Versions before 0.4 of this document left the container registry out of the estimate altogether.
 
 ### 8.1 Database hosting: Neon Free for the MVP, Azure PostgreSQL as fallback
 
@@ -532,6 +534,25 @@ The design needs real PostgreSQL (`pgvector`, `pg_trgm`, `unaccent`), but not Az
 
 **Considered and rejected:** Supabase Free (projects pause after a week of inactivity, which suits an irregularly used app badly); SQLite (the vector and name search would have to be reimplemented in C#, and Container Apps has no persistent local disk); Azure SQL Database free offer (a different engine, so the `pgvector` + `pg_trgm` design would be lost).
 
+### 8.2 Container registry: GitHub Container Registry for the MVP
+
+The backend image is built by GitHub Actions and pulled by Azure Container Apps. Azure Container Registry is not needed for that: Container Apps can pull from any registry, and ghcr.io sits next to the source code.
+
+| | **MVP: GitHub Container Registry (ghcr.io)** | **Fallback: Azure Container Registry Basic** |
+|---|---|---|
+| Cost | 0 USD for public images. Private images share the account quota (GitHub Free: 500 MB storage, 1 GB data transfer per month) | ~5 USD/month |
+| Limits | Public: none to watch. GitHub also states that container image storage and bandwidth is currently free and promises at least a month's notice before that changes | 10 GB included |
+| Authentication from Container Apps | None for a public image. Private image: username + personal access token with `read:packages`, stored as a Container Apps secret | Managed identity, no stored credentials |
+| Fit | Image tagged with the commit ID, pushed with the built-in `GITHUB_TOKEN` | Same workflow, different login step |
+
+**Rules for the MVP**
+- **Public image, if the repository is public** (to be confirmed). The image will likely be a few hundred MB (.NET runtime, native OpenCV, DINOv2 model), which could exceed the private quota, and every pull from a cold start would count against the transfer allowance.
+- **No secrets in the image.** Connection strings, keys and tokens come from Container Apps secrets at runtime. DINOv2 is Apache-2.0, so including its weights in a public image is allowed.
+- **Image size.** If the image grows too large, download the model from Blob Storage at startup instead of baking it in, accepting a slightly longer cold start.
+- **The backup job** (§8.1) uses a standard PostgreSQL image from a public registry and does not use this registry.
+
+**When to switch to Azure Container Registry:** the repository or image must be private and exceeds the free quota; GitHub starts charging for the container registry; or you want managed-identity authentication. **How:** change the login step in the workflow and the registry address in Container Apps. No application code changes.
+
 ---
 
 ## 9. Architecture Decision Records (summary)
@@ -546,7 +567,8 @@ The design needs real PostgreSQL (`pgvector`, `pg_trgm`, `unaccent`), but not Az
 | ADR-06 | Human-in-the-loop final decision; optimize for recall | Similar designs make fully automatic decisions unreliable | Never, for this domain |
 | ADR-07 | Crop/perspective normalization before matching | Background & perspective are the dominant error sources | — |
 | ADR-08 | Photos optional; per-pair matching mode with name-only fallback, capped at "Similar" | Many items will lack photos (no bulk import); a name alone cannot prove identical design | Bulk import is added or photo coverage is near 100% |
-| ADR-09 | MVP database on **Neon Free**; Azure Database for PostgreSQL B1ms as the paid fallback; nightly `pg_dump` to Blob Storage | Saves ~17–19 USD/month of ~25; identical engine and code; low lock-in (dump/restore); free tier fits the expected data size without an HNSW index | Database nears ~0.4 GB, Neon free terms change, latency/wake-up annoys, or multi-user product |
+| ADR-09 | MVP database on **Neon Free**; Azure Database for PostgreSQL B1ms as the paid fallback; nightly `pg_dump` to Blob Storage | Saves ~17–19 USD/month, most of the bill; identical engine and code; low lock-in (dump/restore); free tier fits the expected data size without an HNSW index | Database nears ~0.4 GB, Neon free terms change, latency/wake-up annoys, or multi-user product |
+| ADR-10 | Container images in **GitHub Container Registry** (public image); Azure Container Registry Basic as fallback | Saves ~5 USD/month; the image is built in GitHub Actions anyway; Container Apps can pull from any registry | Repository/image must be private and exceeds the free quota, GitHub changes pricing, or managed-identity auth is wanted |
 
 ---
 
@@ -566,6 +588,9 @@ The design needs real PostgreSQL (`pgvector`, `pg_trgm`, `unaccent`), but not Az
 | Database wakes from idle on the first request | Slow or failed first call | Pooled connection string; EF Core retry policy; the UI shows a loading state |
 | Free-tier terms change or a required extension is unavailable | Forced move or blocked design | Verify `pg_trgm`/`unaccent` early; documented switch path to Azure PostgreSQL (§8.1) |
 | Database hosted by a second vendor, cross-cloud | Extra latency; one more account to secure | Choose a nearby EU region; TLS only; store the connection string as a secret |
+| Container image is large (OpenCV + model) | Private image could exceed ghcr.io free quota; slower cold start | Public image; or download the model at startup; or switch to Azure Container Registry (§8.2) |
+| Secrets accidentally baked into a public image | Credential leak | Secrets only via Container Apps secrets; no `.env` files in the build context; scan the image in CI |
+| GitHub changes free terms for the container registry | Small monthly cost appears | Advance notice promised; documented switch to Azure Container Registry (§8.2) |
 
 ---
 
@@ -575,7 +600,7 @@ The design needs real PostgreSQL (`pgvector`, `pg_trgm`, `unaccent`), but not Az
 2. Domain + EF Core + PostgreSQL on **Neon Free** (first verify that `vector`, `pg_trgm` and `unaccent` can be enabled) + Blob storage; item CRUD and name filter.
 3. Duplicate check endpoint using the spike code, including the name-only mode (§2.4); background indexing worker.
 4. Blazor PWA: grid with placeholders, name filter and "without photo" filter, add-item flow (photo optional, with the "front side first" hint) and crop tool, candidate list, side-by-side compare. Verify it installs and the camera works on Android.
-5. Auth (Entra External ID), deployment pipeline to Azure, and the nightly `pg_dump` backup job (test a restore once).
+5. Auth (Entra External ID), deployment pipeline (GitHub Actions builds and pushes the image to ghcr.io, then deploys to Container Apps), and the nightly `pg_dump` backup job (test a restore once).
 6. Phase 1.1: decision logging, threshold tuning, OCR.
 7. Phase 2: native Android app (MAUI Blazor Hybrid), "copies owned" counter.
 8. Phase 3: iOS app; re-evaluate import/export.
