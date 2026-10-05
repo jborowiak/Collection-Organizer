@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Document** | Product & Technical Requirements |
-| **Version** | 0.2 (draft) |
+| **Version** | 0.3 (draft) |
 | **Status** | For review |
 | **Related** | `02-architecture.md` |
 
@@ -13,6 +13,7 @@
 |---|---|
 | 0.1 | Initial draft. |
 | 0.2 | Photo is optional on items (FR-01). Photo side tag is optional (FR-02). "Copies owned" moved to post-MVP (FR-27). Onboarding/import requirements (FR-40..42) moved to *Could*. Open questions resolved and moved to §10 *Decisions*. PWA confirmed as the Android solution for MVP. Bulk import removed from the roadmap for now. New requirements for items without photos (FR-07, FR-16, FR-32). |
+| 0.3 | NFR-08 cost target updated to match the architecture: under ~10 USD/EUR per month for the MVP (free-tier database and container registry), up to ~30 if the database moves to a paid tier. |
 
 ---
 
@@ -142,7 +143,7 @@ Not part of the MVP; the existing collection is entered via the normal "Add item
 | NFR-05 | **Scalability** | Designed for 10,000 items per collection without architectural changes; 100,000 with minor changes. |
 | NFR-06 | **Usability** | The "add + check" flow is completable one-handed on a phone in under 30 seconds. |
 | NFR-07 | **Portability** | MVP: responsive web app installable as a PWA on Android. Later: native Android and iOS apps reusing the web UI and client logic. |
-| NFR-08 | **Cost** | Hobby-scale hosting target: **low tens of USD/EUR per month** on Azure (see architecture doc). |
+| NFR-08 | **Cost** | Hobby-scale hosting target: **under ~10 USD/EUR per month for the MVP** (free-tier database and container registry; Azure services within their free allowances), and **up to ~30 USD/EUR per month** if the database moves to a paid tier (see architecture doc §8). |
 | NFR-09 | **Data safety** | Daily backups of database and photos. |
 | NFR-10 | **Security** | HTTPS only; photos not publicly accessible (time-limited access URLs). |
 | NFR-11 | **Privacy** | Uploaded photos may contain people/places in the background; they are never shared with third parties beyond the chosen cloud processing services. |
