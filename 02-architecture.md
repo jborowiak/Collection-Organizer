@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Document** | Solution Architecture |
-| **Version** | 0.5 (draft) |
+| **Version** | 0.6 (draft) |
 | **Status** | For review |
 | **Related** | `01-requirements.md` (v0.3) |
 
@@ -16,6 +16,7 @@
 | 0.3 | Added the "photograph the front side first" hint in the add-item screen (§2.2 Stage 0, build order). |
 | 0.4 | Database hosting: **Neon Free for the MVP, Azure Database for PostgreSQL as paid fallback** (new §8.1, ADR-09). Nightly `pg_dump` backup job to Blob Storage, no HNSW index in the MVP, database-size monitoring. Cost estimate rewritten from checked pricing (now includes Container Registry). New risks, updated build order. |
 | 0.5 | Container images stored in **GitHub Container Registry (ghcr.io)** instead of Azure Container Registry (new §8.2, ADR-10). Cost estimate updated: MVP ~1–3 USD/month. |
+| 0.6 | Repository confirmed **public**: the "to be confirmed" in §8.2 is resolved; the public ghcr.io image is the chosen setup. |
 
 ---
 
@@ -546,7 +547,7 @@ The backend image is built by GitHub Actions and pulled by Azure Container Apps.
 | Fit | Image tagged with the commit ID, pushed with the built-in `GITHUB_TOKEN` | Same workflow, different login step |
 
 **Rules for the MVP**
-- **Public image, if the repository is public** (to be confirmed). The image will likely be a few hundred MB (.NET runtime, native OpenCV, DINOv2 model), which could exceed the private quota, and every pull from a cold start would count against the transfer allowance.
+- **Public image** (the repository is public — confirmed). The image will likely be a few hundred MB (.NET runtime, native OpenCV, DINOv2 model), which could exceed the private quota, and every pull from a cold start would count against the transfer allowance.
 - **No secrets in the image.** Connection strings, keys and tokens come from Container Apps secrets at runtime. DINOv2 is Apache-2.0, so including its weights in a public image is allowed.
 - **Image size.** If the image grows too large, download the model from Blob Storage at startup instead of baking it in, accepting a slightly longer cold start.
 - **The backup job** (§8.1) uses a standard PostgreSQL image from a public registry and does not use this registry.
