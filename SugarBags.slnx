@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SugarBags.Api/SugarBags.Api.csproj" />
+    <Project Path="src/SugarBags.Application/SugarBags.Application.csproj" />
+    <Project Path="src/SugarBags.Domain/SugarBags.Domain.csproj" />
+    <Project Path="src/SugarBags.Infrastructure/SugarBags.Infrastructure.csproj" />
+    <Project Path="src/SugarBags.UI/SugarBags.UI.csproj" />
+    <Project Path="src/SugarBags.Vision/SugarBags.Vision.csproj" />
+    <Project Path="src/SugarBags.Web/SugarBags.Web.csproj" />
+    <Project Path="src/SugarBags.Worker/SugarBags.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SugarBags.Api.Tests/SugarBags.Api.Tests.csproj" />
+    <Project Path="tests/SugarBags.Application.Tests/SugarBags.Application.Tests.csproj" />
+    <Project Path="tests/SugarBags.Domain.Tests/SugarBags.Domain.Tests.csproj" />
+    <Project Path="tests/SugarBags.Infrastructure.Tests/SugarBags.Infrastructure.Tests.csproj" />
+    <Project Path="tests/SugarBags.Vision.Tests/SugarBags.Vision.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/SugarBags.Eval/SugarBags.Eval.csproj" />
+  </Folder>
+</Solution>

@@ -55,3 +55,9 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Sugar Bags project-specific
+models/*.onnx
+testdata/
+eval-results/
+*.dump
